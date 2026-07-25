@@ -14,7 +14,11 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})  # Permite peticiones de cualquier origen
 
 # Configuración de base de datos
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+db_url = os.getenv('DATABASE_URL')
+if db_url and db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Inicializar SQLAlchemy con la App
@@ -22,8 +26,8 @@ db.init_app(app)
 
 # Crear tablas en Supabase y aplicar migraciones/sincronización al arrancar
 with app.app_context():
-    db.create_all()
     try:
+        db.create_all()
         # Añadir la columna password_hash a la tabla de usuarios si no existe
         db.session.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);"))
         
