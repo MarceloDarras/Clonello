@@ -26,13 +26,22 @@ export default function TableroDetailPage({ params }: { params: Promise<{ id: st
   const [draggingCardId, setDraggingCardId] = useState<number | null>(null);
   const [dragOverListId, setDragOverListId] = useState<number | null>(null);
 
-  // Estado para el Modal de Agregar Usuario a Tablero
+  // Estado para el Modal de Agregar Usuario a Tablero (BoardUser)
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [users, setUsers] = useState<Usuario[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<number | string>('');
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isSubmittingUser, setIsSubmittingUser] = useState(false);
   const [userMsg, setUserMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Estado para el Modal de Editar Tarjeta (Descripción y Usuario Asignado - CardUser)
+  const [isEditCardModalOpen, setIsEditCardModalOpen] = useState(false);
+  const [activeCard, setActiveCard] = useState<Card | null>(null);
+  const [cardDescription, setCardDescription] = useState<string>('');
+  const [cardUserId, setCardUserId] = useState<number | string>('');
+  const [isChangingAssignedUser, setIsChangingAssignedUser] = useState(false);
+  const [cardMsg, setCardMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isSavingCard, setIsSavingCard] = useState(false);
 
   useEffect(() => {
     api.checkHealth()
@@ -113,7 +122,7 @@ export default function TableroDetailPage({ params }: { params: Promise<{ id: st
     }
   };
 
-  // Cargar lista de usuarios y abrir modal
+  // Cargar usuarios para invitar al tablero (BoardUser)
   const abrirModalAgregarUsuario = async () => {
     setIsAddUserModalOpen(true);
     setUserMsg(null);
@@ -131,7 +140,7 @@ export default function TableroDetailPage({ params }: { params: Promise<{ id: st
     }
   };
 
-  // Ejecutar vinculación usuario-tablero
+  // Asociar usuario al tablero (BoardUser)
   const handleCreateBoardUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUserId) {
@@ -146,6 +155,7 @@ export default function TableroDetailPage({ params }: { params: Promise<{ id: st
       await api.createBoardUser(boardId, Number(selectedUserId));
       setUserMsg({ type: 'success', text: '¡Usuario agregado al tablero con éxito!' });
       setSelectedUserId('');
+      await refresh();
       
       setTimeout(() => {
         setIsAddUserModalOpen(false);
@@ -161,8 +171,61 @@ export default function TableroDetailPage({ params }: { params: Promise<{ id: st
     }
   };
 
-  // Mapeo/Filtrado para excluir al usuario actualmente logueado
-  const usuariosDisponibles = (users || []).filter((u) => u.id !== user?.id);
+  // Abrir Modal de Edición de Tarjeta (Descripción y Usuario Asignado - CardUser)
+  const abrirModalEditarTarjeta = (card: Card) => {
+    setActiveCard(card);
+    setCardDescription(card.description || '');
+    setIsEditCardModalOpen(true);
+    setCardMsg(null);
+    setIsChangingAssignedUser(false);
+
+    const currentAssigned = card.usuarios && card.usuarios.length > 0 ? card.usuarios[0] : null;
+    setCardUserId(currentAssigned ? currentAssigned.id : '');
+  };
+
+  // Guardar Cambios de la Tarjeta (Descripción y Usuario Asignado)
+  const handleSaveCardDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeCard) return;
+
+    setIsSavingCard(true);
+    setCardMsg(null);
+
+    try {
+      // 1. Actualizar descripción en backend
+      await api.updateCard(activeCard.id, {
+        description: cardDescription.trim(),
+      });
+
+      // 2. Si se seleccionó un usuario para la tarjeta, guardar vinculación (CardUser)
+      if (cardUserId) {
+        await api.createCardUser(activeCard.id, Number(cardUserId));
+      }
+
+      setCardMsg({ type: 'success', text: '¡Tarjeta actualizada con éxito!' });
+      await refresh(); // Refrescar datos en el tablero
+
+      setTimeout(() => {
+        setIsEditCardModalOpen(false);
+        setActiveCard(null);
+        setCardMsg(null);
+      }, 1000);
+    } catch (err) {
+      setCardMsg({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Error al guardar cambios de la tarjeta',
+      });
+    } finally {
+      setIsSavingCard(false);
+    }
+  };
+
+  // 1. Miembros estrictamente unidos a este tablero para asignar tareas
+  const miembrosDelTablero = board?.usuarios || [];
+  const usuariosParaTarjeta = miembrosDelTablero.filter((u) => u.id !== user?.id);
+
+  // 2. Todos los usuarios del sistema para invitar al tablero
+  const usuariosParaInvitacionTablero = (users || []).filter((u) => u.id !== user?.id);
 
   return (
     <main className="min-h-screen text-slate-100 flex flex-col relative">
@@ -264,9 +327,23 @@ export default function TableroDetailPage({ params }: { params: Promise<{ id: st
                 <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                   📋 {board?.title || `Tablero #${boardId}`}
                 </h2>
-                <span className="text-xs text-slate-300 glass-card px-3 py-1.5 rounded-lg border border-white/10 shadow-sm">
-                  💡 Arrastra y suelta tarjetas entre listas para organizarlas
-                </span>
+                <div className="flex items-center gap-3">
+                  {/* Lista de Miembros del Tablero */}
+                  <div className="flex items-center -space-x-2 overflow-hidden">
+                    {miembrosDelTablero.map((m) => (
+                      <div 
+                        key={m.id} 
+                        title={`Miembro: @${m.username}`}
+                        className="w-7 h-7 rounded-full bg-blue-600 border-2 border-slate-900 font-bold flex items-center justify-center text-[10px] text-white shadow"
+                      >
+                        {m.username.charAt(0).toUpperCase()}
+                      </div>
+                    ))}
+                  </div>
+                  <span className="text-xs text-slate-300 glass-card px-3 py-1.5 rounded-lg border border-white/10 shadow-sm">
+                    💡 Arrastra y suelta tarjetas entre listas para organizarlas
+                  </span>
+                </div>
               </div>
 
               {/* Columnas / Listas con Glassmorfismo */}
@@ -298,19 +375,47 @@ export default function TableroDetailPage({ params }: { params: Promise<{ id: st
                       <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 my-1 min-h-[100px]">
                         {list.cards.map((card) => {
                           const isDragging = draggingCardId === card.id;
+                          const assignedUser = card.usuarios && card.usuarios.length > 0 ? card.usuarios[0] : null;
+
                           return (
                             <div 
                               key={card.id}
                               draggable
                               onDragStart={(e) => handleDragStart(e, card)}
                               onDragEnd={() => setDraggingCardId(null)}
-                              className={`glass-card-item hover:border-white/30 p-3.5 rounded-xl shadow-md transition group cursor-grab active:cursor-grabbing ${
+                              className={`glass-card-item hover:border-white/30 p-3.5 rounded-xl shadow-md transition group cursor-grab active:cursor-grabbing relative ${
                                 isDragging ? 'opacity-30 border-dashed border-blue-400' : ''
                               }`}
                             >
-                              <p className="text-sm text-slate-100 font-medium select-none">{card.title}</p>
+                              <div className="flex justify-between items-start gap-2">
+                                <p className="text-sm text-slate-100 font-medium select-none flex-1">{card.title}</p>
+                                
+                                {/* Icono de Lápiz/Hoja para abrir edición en el extremo derecho */}
+                                <button 
+                                  type="button" 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    abrirModalEditarTarjeta(card);
+                                  }} 
+                                  title="Editar descripción o asignar usuario"
+                                  className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-700/60 transition text-sm flex-shrink-0"
+                                >
+                                  ✏️
+                                </button>
+                              </div>
+
                               {card.description && (
                                 <p className="text-xs text-slate-400 mt-1 line-clamp-2 select-none">{card.description}</p>
+                              )}
+
+                              {/* Indicador de Usuario Asignado a la Tarjeta */}
+                              {assignedUser && (
+                                <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-300">
+                                  <span className="text-slate-400 text-[10px]">Asignado a:</span>
+                                  <span className="flex items-center gap-1 font-semibold text-blue-400 bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-800/40">
+                                    👤 @{assignedUser.username}
+                                  </span>
+                                </div>
                               )}
                             </div>
                           );
@@ -370,7 +475,7 @@ export default function TableroDetailPage({ params }: { params: Promise<{ id: st
         )}
       </div>
 
-      {/* Modal con Fondo Oscurecido y Glassmorfismo */}
+      {/* Modal 1: Agregar Usuario al Tablero (BoardUser) */}
       {isAddUserModalOpen && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div 
@@ -406,13 +511,13 @@ export default function TableroDetailPage({ params }: { params: Promise<{ id: st
             {isLoadingUsers ? (
               <div className="py-8 text-center text-slate-400 text-xs flex items-center justify-center">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mr-2"></div>
-                Cargando usuarios...
+                Cargando usuarios del sistema...
               </div>
             ) : (
               <form onSubmit={handleCreateBoardUser} className="space-y-4 text-xs">
                 <div>
                   <label className="block text-slate-300 font-medium mb-1.5">
-                    Selecciona el usuario que deseas agregar:
+                    Selecciona un usuario para invitar a este tablero:
                   </label>
                   <select
                     value={selectedUserId}
@@ -422,18 +527,12 @@ export default function TableroDetailPage({ params }: { params: Promise<{ id: st
                     <option value="" disabled className="bg-slate-900 text-slate-400">
                       -- Seleccionar usuario --
                     </option>
-                    {usuariosDisponibles.map((u) => (
+                    {usuariosParaInvitacionTablero.map((u) => (
                       <option value={u.id} key={u.id} className="bg-slate-800 text-white">
                         @{u.username} ({u.nombre} {u.apellido || ''})
                       </option>
                     ))}
                   </select>
-
-                  {usuariosDisponibles.length === 0 && (
-                    <p className="text-[11px] text-amber-400 mt-2">
-                      No hay otros usuarios registrados disponibles para invitar.
-                    </p>
-                  )}
                 </div>
 
                 <div className="flex gap-3 pt-2">
@@ -454,6 +553,141 @@ export default function TableroDetailPage({ params }: { params: Promise<{ id: st
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal 2: Editar Tarjeta (Descripción y Usuario Asignado estrictamente de los Miembros del Tablero) */}
+      {isEditCardModalOpen && activeCard && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0" 
+            onClick={() => setIsEditCardModalOpen(false)}
+          ></div>
+
+          <div className="relative z-10 w-full max-w-md glass-panel rounded-3xl p-6 shadow-2xl space-y-5 border border-white/10">
+            <div className="flex justify-between items-center border-b border-white/10 pb-3">
+              <h3 className="text-base font-bold text-blue-400 flex items-center gap-2">
+                ✏️ Editar Tarjeta: {activeCard.title}
+              </h3>
+              <button
+                onClick={() => setIsEditCardModalOpen(false)}
+                className="text-slate-400 hover:text-white text-sm font-bold w-7 h-7 rounded-full glass-card flex items-center justify-center transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {cardMsg && (
+              <div
+                className={`text-xs p-3 rounded-xl text-center ${
+                  cardMsg.type === 'success'
+                    ? 'bg-emerald-950/70 border border-emerald-800 text-emerald-200'
+                    : 'bg-rose-950/70 border border-rose-800 text-rose-200'
+                }`}
+              >
+                {cardMsg.text}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveCardDetails} className="space-y-4 text-xs">
+              
+              {/* Campo 1: Descripción de la Tarjeta */}
+              <div>
+                <label className="block text-slate-300 font-medium mb-1.5">
+                  Descripción de la Tarea:
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Añade una descripción más detallada sobre esta tarea..."
+                  value={cardDescription}
+                  onChange={(e) => setCardDescription(e.target.value)}
+                  className="w-full glass-input rounded-xl p-3 text-slate-100 text-xs focus:outline-none focus:border-blue-500 resize-none"
+                />
+              </div>
+
+              {/* Campo 2: Usuario Asignado (Strictly Miembros del Tablero) */}
+              <div className="space-y-2">
+                <label className="block text-slate-300 font-medium">
+                  Usuario Asignado:
+                </label>
+
+                {(() => {
+                  const currentAssigned = activeCard.usuarios && activeCard.usuarios.length > 0 ? activeCard.usuarios[0] : null;
+
+                  if (currentAssigned && !isChangingAssignedUser) {
+                    return (
+                      <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-blue-600 font-bold flex items-center justify-center text-xs text-white">
+                            {currentAssigned.username.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-slate-200">@{currentAssigned.username}</p>
+                            <p className="text-[11px] text-slate-400">{currentAssigned.nombre} {currentAssigned.apellido || ''}</p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setIsChangingAssignedUser(true)}
+                          className="glass-card hover:bg-slate-700 text-xs px-3 py-1.5 rounded-lg text-blue-400 hover:text-blue-300 font-medium transition"
+                        >
+                          ✏️ Cambiar usuario
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div>
+                      <select
+                        value={cardUserId}
+                        onChange={(e) => setCardUserId(e.target.value)}
+                        className="w-full glass-input rounded-xl p-3 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                      >
+                        <option value="" disabled className="bg-slate-900 text-slate-400">
+                          -- Seleccionar usuario miembro del tablero --
+                        </option>
+                        {usuariosParaTarjeta.map((u) => (
+                          <option value={u.id} key={u.id} className="bg-slate-800 text-white">
+                            @{u.username} ({u.nombre} {u.apellido || ''})
+                          </option>
+                        ))}
+                      </select>
+
+                      {usuariosParaTarjeta.length === 0 && (
+                        <p className="text-[11px] text-amber-400 mt-2">
+                          💡 No hay otros miembros unidos a este tablero. Invita usuarios al tablero con el botón &quot;+ Agregar usuario a tablero&quot;.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Botones de Acción */}
+              <div className="flex gap-3 pt-3">
+                <button
+                  type="submit"
+                  disabled={isSavingCard}
+                  className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl transition shadow-lg shadow-blue-600/30 disabled:opacity-50"
+                >
+                  {isSavingCard ? 'Guardando...' : 'Guardar Cambios'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditCardModalOpen(false);
+                    setActiveCard(null);
+                  }}
+                  className="glass-card hover:bg-slate-700/80 text-slate-300 font-semibold px-4 py-2.5 rounded-xl transition"
+                >
+                  Cancelar
+                </button>
+              </div>
+
+            </form>
           </div>
         </div>
       )}

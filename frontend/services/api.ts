@@ -163,6 +163,20 @@ export const trelloApi = {
     });
   },
 
+  addUserToCard: (cardId: number, usuarioId: number): Promise<{message: string}> => {
+    return fetcher<{message: string}>(`/api/cards/${cardId}/set`, {
+      method: 'POST',
+      body: JSON.stringify({usuario_id: usuarioId})
+    });
+  },
+
+  createCardUser: (cardId: number, usuarioId: number): Promise<{message: string}> => {
+    return fetcher<{message: string}>(`/api/cards/${cardId}/set`, {
+      method: 'POST',
+      body: JSON.stringify({usuario_id: usuarioId})
+    });
+  },
+
   createBoardUser: (boardId: number, usuarioId: number): Promise<{ message: string }> => {
     return fetcher<{ message: string }>(`/api/boards/${boardId}/users`, {
       method: 'POST',
@@ -206,6 +220,17 @@ export const trelloApi = {
    */
   moveCard: (cardId: number, data: MoveCardDTO): Promise<Card> => {
     return fetcher<Card>(`/api/cards/${cardId}/move`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Actualizar título y/o descripción de una tarjeta
+   * PUT /api/cards/<cardId>
+   */
+  updateCard: (cardId: number, data: { title?: string; description?: string }): Promise<Card> => {
+    return fetcher<Card>(`/api/cards/${cardId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });

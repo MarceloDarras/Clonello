@@ -10,7 +10,7 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from sqlalchemy import text
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, Board, List, Card, Usuario, Label, BoardUsuario
+from models import db, Board, List, Card, Usuario, Label, BoardUsuario, CardUsuario
 
 # Cargar variables de entorno desde .env
 load_dotenv()
@@ -314,6 +314,32 @@ def create_card():
     
     return jsonify(new_card.to_dict()), 201
 
+@app.route('/api/cards/<int:card_id>/set', methods=['POST'])
+def card_user_set(card_id):
+    data = request.get_json()
+    if not data or not data.get("usuario_id"):
+        return jsonify({"error": "No se enviaron datos válidos (usuario_id)"}), 400
+
+    usuario_id = data['usuario_id']
+    card = db.session.get(Card, card_id)
+    usuario = db.session.get(Usuario, usuario_id)
+
+    if not card or not usuario:
+        return jsonify({"error": "Tarjeta o usuario no encontrado"}), 404
+    
+    # Asignar o reemplazar el usuario de la tarjeta
+    existing = CardUsuario.query.filter_by(card_id=card_id).first()
+    if existing:
+        existing.usuario_id = usuario_id
+    else:
+        new_rel = CardUsuario(card_id=card_id, usuario_id=usuario_id)
+        db.session.add(new_rel)
+        
+    db.session.commit()
+    return jsonify({"message": "Usuario asignado con éxito a la tarjeta"}), 200
+
+    
+
 @app.route('/api/cards/<int:card_id>/move', methods=['PUT'])
 def move_card(card_id):
     """
@@ -337,8 +363,19 @@ def move_card(card_id):
     card.list_id = target_list_id
     card.position = new_position
     
+@app.route('/api/cards/<int:card_id>', methods=['PUT'])
+def update_card(card_id):
+    data = request.get_json()
+    card = db.session.get(Card, card_id)
+    if not card:
+        return jsonify({"error": "Tarjeta no encontrada"}), 404
+
+    if 'title' in data and data['title'].strip():
+        card.title = data['title'].strip()
+    if 'description' in data:
+        card.description = data['description']
+
     db.session.commit()
-    
     return jsonify(card.to_dict()), 200
 
 if __name__ == '__main__':

@@ -62,11 +62,18 @@ export interface Board {
   id: number;
   title: string;
   lists: List[];
+  usuarios?: Usuario[];
 }
 
 export interface BoardUser {
   id: number;
   board_id: number;
+  user_id: number;
+}
+
+export interface CardUser {
+  id: number;
+  card_id: number;
   user_id: number;
 }
 

@@ -72,6 +72,7 @@ class Board(db.Model):
         return {
             "id": self.id,
             "title": self.title,
+            "usuarios": [u.to_dict() for u in self.usuarios],
             # Asegura que las listas se retornen ordenadas por posición
             "lists": [l.to_dict() for l in sorted(self.lists, key=lambda l: l.position)]
         }
