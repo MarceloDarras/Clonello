@@ -16,7 +16,11 @@ from models import db, Board, List, Card, Usuario, Label, BoardUsuario
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})  # Permite peticiones de cualquier origen
+CORS(app, resources={r"/*": {
+    "origins": "*",
+    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"]
+}})
 
 # Configuración de base de datos
 db_url = os.getenv('DATABASE_URL')
