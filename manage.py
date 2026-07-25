@@ -13,5 +13,5 @@ from waitress import serve
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
-    print(f"🚀 Iniciando Servidor desde manage.py puente en http://0.0.0.0:{port}")
+    print(f"🚀 Servidor WSGI de producción (Waitress) iniciado en http://0.0.0.0:{port}")
     serve(app, host="0.0.0.0", port=port)
