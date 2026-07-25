@@ -1,5 +1,10 @@
 # app.py
 import os
+import sys
+
+# Asegurar que el directorio de backend esté en sys.path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -17,6 +22,10 @@ CORS(app, resources={r"/*": {"origins": "*"}})  # Permite peticiones de cualquie
 db_url = os.getenv('DATABASE_URL')
 if db_url and db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+if not db_url:
+    print("⚠️ ADVERTENCIA: DATABASE_URL no encontrada en entorno, usando memoria temporal para no colapsar.")
+    db_url = "sqlite:///:memory:"
 
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
