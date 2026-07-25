@@ -6,8 +6,9 @@ import {
   RegisterUserDTO, LoginDTO, ChangePasswordDTO, UpdateProfileDTO 
 } from '../lib/types';
 
-// URL Base predeterminada apuntando al backend de Flask (sin '/api' al final para permitir /health)
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000').replace(/\/api\/?$/, '');
+// URL Base predeterminada apuntando al backend de Flask (sin '/api' o '/' al final para evitar peticiones //health)
+const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000';
+const API_BASE_URL = rawUrl.trim().replace(/\/api\/?$/, '').replace(/\/+$/, '');
 
 class ApiError extends Error {
   status: number;
