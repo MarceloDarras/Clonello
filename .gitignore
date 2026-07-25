@@ -1,0 +1,75 @@
+# ==========================================
+# Python & Entornos Virtuales
+# ==========================================
+venv/
+.venv/
+env/
+ENV/
+backend/venv/
+*/venv/
+*/env/
+
+# Caché y archivos compilados de Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+*.so
+
+# ==========================================
+# Node.js, Next.js & Frontend
+# ==========================================
+node_modules/
+frontend/node_modules/
+*/node_modules/
+
+# Directorios de compilación de Next.js
+.next/
+frontend/.next/
+out/
+build/
+dist/
+
+# Logs de gestores de paquetes
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# ==========================================
+# Archivos de Entorno & Variables Secretas (.env)
+# ==========================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*
+*.env
+!.env.example
+
+# ==========================================
+# Archivos de Sistema Operativo & IDEs
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Configuración de Editores / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Antigravity & Asistentes
+.gemini/
